@@ -78,6 +78,11 @@ def fetch_satellite_images(context: AssetExecutionContext, osm_nodes):
             f.write(response.content)
 
 @asset
-def fetch_incidents_data(context: AssetExecutionContext):
-    df = pd.read_csv(f'data/incidents/Motor_Vehicle_Accident_Deaths.csv')
-    return df
+def fetch_tims_data(context: AssetExecutionContext):
+    df = pd.read_csv(f'data/incidents/Crashes.csv')
+    return Output(
+        value=df,
+        metadata={
+            'preview': MetadataValue.md(df.head().to_markdown())
+        }
+    )
