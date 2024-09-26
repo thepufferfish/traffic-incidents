@@ -15,11 +15,14 @@ from traffic_fatalities.utils import get_bounding_box
 @multi_asset(
     outs={
         "osm_nodes": AssetOut(),
-        "osm_edges": AssetOut()
+        "osm_edges": AssetOut(),
+        'osm_graph': AssetOut()
     }
 )
 def fetch_openstreetmaps(context: AssetExecutionContext):
     G = ox.graph_from_place('Sacramento, California, USA', network_type='drive')
+
+    # TODO: figure out how to output plot in dagster ui
     # fig, ax = ox.plot_graph(G, show=False, close=False)
     # buffer = BytesIO()
     # plt.savefig(buffer, format='png')
@@ -35,6 +38,24 @@ def fetch_openstreetmaps(context: AssetExecutionContext):
     context.instance.add_dynamic_partitions(nodes_partitions_def.name, partition_keys=node_ids)
     yield Output(nodes, output_name="osm_nodes")
     yield Output(edges, output_name="osm_edges")
+    yield Output(G, output_name='osm_graph')
+
+@multi_asset(
+    ins={'osm_graph': AssetIn()},
+    outs={
+        'consolidated_nodes': AssetOut(),
+        'consolidated_edges': AssetOut()
+    }
+)
+def consolidate_graph(context: AssetExecutionContext, osm_graph):
+    # consolidates intersections inside centroids with radius of tolerance in meters
+    G_proj = ox.project_graph(osm_graph)
+    G_slim = ox.consolidate_intersections(G_proj, tolerance=20)
+    nodes, edges = ox.graph_to_gdfs(G_slim)
+    nodes.to_csv(f'data/consolidated_nodes.csv')
+    nodes.to_csv(f'data/consolidated_edges.csv')
+    yield Output(nodes, output_name="consolidated_nodes")
+    yield Output(edges, output_name="consolidated_edges")
 
 @asset(
     ins={"osm_nodes": AssetIn()},
