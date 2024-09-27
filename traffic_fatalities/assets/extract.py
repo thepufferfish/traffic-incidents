@@ -75,9 +75,11 @@ def fetch_satellite_images(context: AssetExecutionContext, osm_nodes):
 @asset
 def fetch_tims_data(context: AssetExecutionContext):
     df = pd.read_csv(f'data/incidents/Crashes.csv')
+    df = df.loc[(df['PEDESTRIAN_ACCIDENT'] == 'Y') | (df['BICYCLE_ACCIDENT'] == 'Y')]
     return Output(
         value=df,
         metadata={
+            'num_incidents': df.shape[0],
             'preview': MetadataValue.md(df.head().to_markdown())
         }
     )
