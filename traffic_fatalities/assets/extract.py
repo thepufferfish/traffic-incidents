@@ -1,12 +1,7 @@
 import os
 import requests
 import pandas as pd
-# import numpy as np
-# import networkx as nx
 import osmnx as ox
-# import matplotlib.pyplot as plt
-# import base64
-# from io import BytesIO
 from dagster import asset, multi_asset, AssetExecutionContext, AssetIn, AssetOut, MaterializeResult, MetadataValue, Output
 from traffic_fatalities.partitions import nodes_partitions_def
 from traffic_fatalities.utils import get_bounding_box
