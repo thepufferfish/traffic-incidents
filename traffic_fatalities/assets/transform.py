@@ -46,7 +46,6 @@ def match_incidents_to_nodes(context: AssetExecutionContext, fetch_tims_data, co
                 ])
     match_df = match_df.reset_index()
     match_df.to_csv(f'data/incidents/incidents_nodes_crosswalk.csv')
-    print(match_df)
     return Output(
         value=match_df,
         metadata={
