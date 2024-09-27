@@ -53,7 +53,7 @@ def consolidate_graph(context: AssetExecutionContext, osm_graph):
     G_slim = ox.consolidate_intersections(G_proj, tolerance=20)
     nodes, edges = ox.graph_to_gdfs(G_slim)
     nodes.to_csv(f'data/consolidated_nodes.csv')
-    nodes.to_csv(f'data/consolidated_edges.csv')
+    edges.to_csv(f'data/consolidated_edges.csv')
     yield Output(nodes, output_name="consolidated_nodes")
     yield Output(edges, output_name="consolidated_edges")
 
