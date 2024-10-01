@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import osmnx as ox
+from thefuzz import fuzz
 from osmnx.distance import great_circle
 from scipy.spatial import cKDTree
 from dagster import asset, AssetExecutionContext, AssetIn, MaterializeResult, MetadataValue, Output
@@ -20,7 +22,15 @@ def lon_distance_threshold(lat, distance_in_meters):
 )
 def match_incidents_to_nodes(context: AssetExecutionContext, fetch_tims_data, consolidated_nodes):
     df = fetch_tims_data
+    # drop locations without geocoding
     df = df.loc[~np.isnan(df['POINT_X'])]
+    # drop roads that contain in street numbers (not intersections)
+    df = df.loc[~df['PRIMARY_RD'].str.contains(r'\b[0-9]{3,}\b') & ~df['SECONDARY_RD'].str.contains(r'\b[0-9]{3,}\b')]
+    # convert feet to meters and apply distance threshold
+    df = df.loc[df['DISTANCE'] <= (DISTANCE_THRESHOLD / 0.3048)]
+    # some streets have directions in parentheses e.g. (N)
+    df['PRIMARY_RD'] = df['PRIMARY_RD'].str.replace(r'\s*\([NSEW]\)\s*', '')
+    df['SECONDARY_RD'] = df['SECONDARY_RD'].str.replace(r'\s*\([NSEW]\)\s*', '')
     nodes = consolidated_nodes
     nodes_tree = cKDTree(nodes[['lat', 'lon']].values)
     match_df = pd.DataFrame()
@@ -28,11 +38,11 @@ def match_incidents_to_nodes(context: AssetExecutionContext, fetch_tims_data, co
         context.log.debug(f'Matching {index} to nodes')
         lat = row['POINT_Y']
         lon = row['POINT_X']
-        lat_threshold = 2 * DISTANCE_THRESHOLD / DEGREE_TO_METERS # give fudge factor then check actual distances
-        lon_threshold = lon_distance_threshold(lat, 2 * DISTANCE_THRESHOLD)
+        lat_threshold = DISTANCE_THRESHOLD / DEGREE_TO_METERS # give fudge factor then check actual distances
+        lon_threshold = lon_distance_threshold(lat, DISTANCE_THRESHOLD)
         nearby_nodes_idx = nodes_tree.query_ball_point(
             [lat, lon], 
-            r=np.sqrt(lat_threshold**2 + lon_threshold**2)
+            r=2*np.sqrt(lat_threshold**2 + lon_threshold**2)
         )
         for node_idx in nearby_nodes_idx:
             node = nodes.iloc[node_idx]
