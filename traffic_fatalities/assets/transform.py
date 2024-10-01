@@ -1,10 +1,12 @@
+import re
 import pandas as pd
 import numpy as np
 import osmnx as ox
 from thefuzz import fuzz
 from osmnx.distance import great_circle
 from scipy.spatial import cKDTree
-from dagster import asset, AssetExecutionContext, AssetIn, MaterializeResult, MetadataValue, Output
+from dagster import asset, AssetExecutionContext, AssetIn, asset_check, AssetCheckExecutionContext, AssetCheckResult, MaterializeResult, MetadataValue, Output
+from traffic_fatalities.utils import normalize_street_name
 
 EARTH_RADIUS = 6371000  # meters
 DEGREE_TO_METERS = 111320  # Average distance for 1 degree latitude in meters
@@ -63,5 +65,109 @@ def match_incidents_to_nodes(context: AssetExecutionContext, fetch_tims_data, co
             'distance_stats': MetadataValue.md(match_df['distance'].describe().to_markdown()),
             'num_matches_stats': MetadataValue.md(match_df.groupby('CASE_ID').size().describe().to_markdown()),
             'preview': MetadataValue.md(match_df.head(20).to_markdown())
+        }
+    )
+
+@asset_check(
+    asset=match_incidents_to_nodes,
+    additional_ins={
+        'consolidated_edges': AssetIn(),
+        'fetch_tims_data': AssetIn()
+    }
+)
+def check_incidents_matches(context: AssetCheckExecutionContext, match_incidents_to_nodes, consolidated_edges, fetch_tims_data):
+    df = pd.merge(
+        match_incidents_to_nodes,
+        fetch_tims_data[['CASE_ID', 'PRIMARY_RD', 'SECONDARY_RD', 'DISTANCE']],
+        on=['CASE_ID'],
+        how='left'
+    )
+    # some edge osmids are a list, and lists of complementary segments are sorted oppositely
+    # so I need to sort them all the same way
+    consolidated_edges = consolidated_edges.reset_index(level=['u', 'v'])
+    consolidated_edges['osmid'] = consolidated_edges['osmid'].apply(lambda x: x.sort() if type(x) == 'list' else x)
+    consolidated_edges['osmid_flat'] = consolidated_edges['osmid'].apply(lambda x: str('-'.join(x)) if type(x) == 'list' else str(x))
+    consolidated_edges = consolidated_edges.explode('name')
+    consolidated_edges['name'] = consolidated_edges['name'].apply(lambda x: normalize_street_name(str(x)))
+    consolidated_edges = consolidated_edges[['u', 'v', 'osmid', 'osmid_flat', 'name']]
+    edges = pd.merge(
+        consolidated_edges,
+        consolidated_edges,
+        left_on=['u', 'v', 'osmid_flat'],
+        right_on=['v', 'u', 'osmid_flat'],
+        how='outer',
+        suffixes=['_u', '_v']
+    )
+    df = df.merge(
+        edges,
+        left_on=['osmid'],
+        right_on=['u_u'],
+        how='left',
+        suffixes=['_node', '_edge']
+    )
+    df['primary_score'] = df.apply(
+        lambda x: max(fuzz.ratio(x['PRIMARY_RD'], x['name_u']), fuzz.ratio(x['PRIMARY_RD'], x['name_v'])),
+        axis=1
+    )
+    df['secondary_score'] = df.apply(
+        lambda x: max(fuzz.ratio(x['SECONDARY_RD'], x['name_u']), fuzz.ratio(x['SECONDARY_RD'], x['name_v'])),
+        axis=1
+    )
+    df['primary_match'] = df.apply(
+        lambda x: x['primary_score'] == 100 if re.search(r'[0-9]', x['PRIMARY_RD']) else x['primary_score'] >= 75,
+        axis=1
+    )
+    df['secondary_match'] = df.apply(
+        lambda x: x['secondary_score'] == 100 if re.search(r'[0-9]', x['SECONDARY_RD']) else x['secondary_score'] >= 75,
+        axis=1
+    )
+    df_grouped = df.groupby(['CASE_ID', 'osmid'])
+    df_agg = df_grouped.agg({
+        'primary_match': 'any',
+        'secondary_match': 'any',
+        'primary_score': 'max',
+        'secondary_score': 'max'
+    }).reset_index()
+    df_agg['good_match'] = df_agg['primary_match'] & df_agg['secondary_match']
+    good_matches = df_agg.loc[df_agg['good_match'],]
+    bad_matches = df_agg.loc[~df_agg['good_match'],]
+    bad_matches = bad_matches.loc[~bad_matches['CASE_ID'].isin(good_matches.CASE_ID)]
+    df_good = good_matches.merge(
+        df,
+        on=['CASE_ID', 'osmid'],
+        how='left'
+    ).sort_values(['CASE_ID', 'osmid'])
+    df_bad = bad_matches.merge(
+        df,
+        on=['CASE_ID', 'osmid'],
+        how='left'
+    ).sort_values(['CASE_ID', 'osmid'])
+    df_bad = df_bad.loc[~df_bad['PRIMARY_RD'].str.contains(r'[0-9]{1,2}') & ~df_bad['SECONDARY_RD'].str.contains(r'[0-9]{1,2}')]
+    return AssetCheckResult(
+        passed=True,
+        metadata={
+            'num_matches': df['CASE_ID'].nunique(),
+            'num_bad_matches': bad_matches['CASE_ID'].nunique(),
+            'bad_matches': MetadataValue.md(df_bad.sort_values(['primary_score_x', 'secondary_score_x', 'CASE_ID', 'osmid'], ascending=False).head(100).to_markdown())
+        }
+    )
+    
+
+@asset(
+    ins={
+        'osm_graph': AssetIn(),
+        'consolidated_nodes': AssetIn()
+    }
+)
+def map_consolidated_nodes_to_images(context: AssetExecutionContext, osm_graph, consolidated_nodes):
+    image_ids = ox.nearest_nodes(osm_graph, consolidated_nodes['lon'], consolidated_nodes['lat'], return_dist=False)
+    mapping = pd.DataFrame({
+        'osmid': consolidated_nodes['osmid'].values,
+        'image_id': image_ids
+    })
+    return Output(
+        value=mapping,
+        metadata={
+            'preview': MetadataValue.md(mapping.head().to_markdown())
         }
     )
