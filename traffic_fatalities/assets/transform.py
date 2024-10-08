@@ -35,7 +35,7 @@ def consolidate_graph(context: AssetExecutionContext, osm_graph):
     },
     partitions_def=consolidation_tolerances_partitions_def
 )
-def match_incidents_to_nodes(context: AssetExecutionContext, fetch_tims_data, consolidated_nodes):
+def map_incidents_to_nodes(context: AssetExecutionContext, fetch_tims_data, consolidated_nodes):
     df = fetch_tims_data
     # drop locations without geocoding
     df = df.loc[~np.isnan(df['POINT_X'])]
@@ -82,15 +82,15 @@ def match_incidents_to_nodes(context: AssetExecutionContext, fetch_tims_data, co
     )
 
 @asset_check(
-    asset=match_incidents_to_nodes,
+    asset=map_incidents_to_nodes,
     additional_ins={
         'consolidated_edges': AssetIn(),
         'fetch_tims_data': AssetIn()
     }
 )
-def check_incidents_matches(context: AssetCheckExecutionContext, match_incidents_to_nodes, consolidated_edges, fetch_tims_data):
+def check_incidents_matches(context: AssetCheckExecutionContext, map_incidents_to_nodes, consolidated_edges, fetch_tims_data):
     metadata = {}
-    for key, value in match_incidents_to_nodes.items():
+    for key, value in map_incidents_to_nodes.items():
         df = pd.merge(
             value,
             fetch_tims_data[['CASE_ID', 'PRIMARY_RD', 'SECONDARY_RD', 'DISTANCE']],
