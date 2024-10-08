@@ -43,16 +43,6 @@ def fetch_openstreetmaps(context: AssetExecutionContext):
     },
     partitions_def=consolidation_tolerances_partitions_def
 )
-def consolidate_graph(context: AssetExecutionContext, osm_graph):
-    # consolidates intersections inside centroids with radius of tolerance in meters
-    tolerance = int(context.partition_key)
-    G_proj = ox.project_graph(osm_graph)
-    G_slim = ox.consolidate_intersections(G_proj, tolerance=tolerance)
-    nodes, edges = ox.graph_to_gdfs(G_slim)
-    nodes.to_csv(f'data/consolidated_nodes.csv')
-    edges.to_csv(f'data/consolidated_edges.csv')
-    yield Output(nodes, output_name="consolidated_nodes")
-    yield Output(edges, output_name="consolidated_edges")
 
 @asset(
     ins={"osm_nodes": AssetIn()},
