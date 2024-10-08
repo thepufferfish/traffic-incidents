@@ -5,7 +5,7 @@ import osmnx as ox
 from thefuzz import fuzz
 from osmnx.distance import great_circle
 from scipy.spatial import cKDTree
-from dagster import asset, AssetExecutionContext, AssetIn, asset_check, AssetCheckExecutionContext, AssetCheckResult, MaterializeResult, MetadataValue, Output
+from dagster import asset, multi_asset, AssetExecutionContext, AssetIn, AssetOut, asset_check, AssetCheckExecutionContext, AssetCheckResult, MaterializeResult, MetadataValue, Output
 from traffic_fatalities.partitions import consolidation_tolerances_partitions_def
 from traffic_fatalities.utils import normalize_street_name
 
@@ -17,6 +17,15 @@ def lon_distance_threshold(lat, distance_in_meters):
     lat_rad = np.radians(lat)
     return distance_in_meters / (EARTH_RADIUS * np.cos(lat_rad) * (np.pi / 180))
 
+@multi_asset(
+    ins={'osm_graph': AssetIn()},
+    outs={
+        'consolidated_graph': AssetOut(),
+        'consolidated_nodes': AssetOut(),
+        'consolidated_edges': AssetOut()
+    },
+    partitions_def=consolidation_tolerances_partitions_def
+)
 def consolidate_graph(context: AssetExecutionContext, osm_graph):
     # consolidates intersections inside centroids with radius of tolerance in meters
     tolerance = int(context.partition_key)
@@ -27,6 +36,7 @@ def consolidate_graph(context: AssetExecutionContext, osm_graph):
     edges.to_csv(f'data/consolidated_edges.csv')
     yield Output(nodes, output_name="consolidated_nodes")
     yield Output(edges, output_name="consolidated_edges")
+    yield Output(G_slim, output_name='consolidated_graph')
 
 @asset(
     ins={

@@ -35,15 +35,6 @@ def fetch_openstreetmaps(context: AssetExecutionContext):
     yield Output(edges, output_name="osm_edges")
     yield Output(G, output_name='osm_graph')
 
-@multi_asset(
-    ins={'osm_graph': AssetIn()},
-    outs={
-        'consolidated_nodes': AssetOut(),
-        'consolidated_edges': AssetOut()
-    },
-    partitions_def=consolidation_tolerances_partitions_def
-)
-
 @asset(
     ins={"osm_nodes": AssetIn()},
     partitions_def=nodes_partitions_def
