@@ -1,10 +1,10 @@
 # Traffic fatalities project
 
-This repo holds code for a project that aims to use traffic incident data, streets networks data, and satellite imagery to predict dangerous intersections as measured by traffic fatalities. The data is currently limited to Sacramento, CA but could be expanded to all of California. Right now, it runs in a Docker container on a HP mini PC set up with Ubuntu.
+This repo holds code for a project that aims to use traffic incident data, streets networks data, and satellite imagery to predict dangerous intersections as measured by traffic fatalities. The data is currently limited to Sacramento, CA but could be expanded to all of California. Right now, it runs in a Docker container on a HP mini PC set up with Ubuntu. The data pipeline is set up using [Dagster](https://dagster.io/).
 
 ## Getting started
 
-First, install your Dagster code location as a Python package. By using the --editable flag, pip will install your Python package in ["editable mode"](https://pip.pypa.io/en/latest/topics/local-project-installs/#editable-installs) so that as you develop, local code changes will automatically apply.
+First, clone the repo, then navigate to the project directory. To install dependencies, run:
 
 ```bash
 pip install -e ".[dev]"
