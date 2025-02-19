@@ -23,3 +23,10 @@ Open http://localhost:3000 with your browser to see the project.
 * Traffic incident data is downloaded via [UC Berkeley's Transportation Injury Mapping System](https://tims.berkeley.edu/) or TIMS which geocodes data from  California Statewide Integrated Traffic Records System (SWITRS).
 * Street network is accessed from [Open Street Map](https://www.openstreetmap.org/) or OSM using the Python package [osmnx](https://osmnx.readthedocs.io/en/stable/) which accesses the OSM API, converts the data to a network graph, and provides tools for working with its street network data.
 * Satellite images of intersections are downloaded via [Mapbox](https://www.mapbox.com/) API.
+
+## TODO:
+
+* Analyze features of OSM data
+* Build baseline predictive model
+* Explore Graph Neural Networks (GNNs) 
+* Test augmenting GNNs with Convolutional Neural Networks (CNNs) using satellite imagery to improve predictive power
