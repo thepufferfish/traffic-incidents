@@ -1,14 +1,9 @@
 import os
 import requests
 import pandas as pd
-# import numpy as np
-# import networkx as nx
 import osmnx as ox
-# import matplotlib.pyplot as plt
-# import base64
-# from io import BytesIO
 from dagster import asset, multi_asset, AssetExecutionContext, AssetIn, AssetOut, MaterializeResult, MetadataValue, Output
-from traffic_fatalities.partitions import nodes_partitions_def
+from traffic_fatalities.partitions import nodes_partitions_def, consolidation_tolerances_partitions_def
 from traffic_fatalities.utils import get_bounding_box
 
 
@@ -40,23 +35,6 @@ def fetch_openstreetmaps(context: AssetExecutionContext):
     yield Output(edges, output_name="osm_edges")
     yield Output(G, output_name='osm_graph')
 
-@multi_asset(
-    ins={'osm_graph': AssetIn()},
-    outs={
-        'consolidated_nodes': AssetOut(),
-        'consolidated_edges': AssetOut()
-    }
-)
-def consolidate_graph(context: AssetExecutionContext, osm_graph):
-    # consolidates intersections inside centroids with radius of tolerance in meters
-    G_proj = ox.project_graph(osm_graph)
-    G_slim = ox.consolidate_intersections(G_proj, tolerance=20)
-    nodes, edges = ox.graph_to_gdfs(G_slim)
-    nodes.to_csv(f'data/consolidated_nodes.csv')
-    nodes.to_csv(f'data/consolidated_edges.csv')
-    yield Output(nodes, output_name="consolidated_nodes")
-    yield Output(edges, output_name="consolidated_edges")
-
 @asset(
     ins={"osm_nodes": AssetIn()},
     partitions_def=nodes_partitions_def
@@ -80,9 +58,11 @@ def fetch_satellite_images(context: AssetExecutionContext, osm_nodes):
 @asset
 def fetch_tims_data(context: AssetExecutionContext):
     df = pd.read_csv(f'data/incidents/Crashes.csv')
+    df = df.loc[(df['PEDESTRIAN_ACCIDENT'] == 'Y') | (df['BICYCLE_ACCIDENT'] == 'Y')]
     return Output(
         value=df,
         metadata={
+            'num_incidents': df.shape[0],
             'preview': MetadataValue.md(df.head().to_markdown())
         }
     )

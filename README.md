@@ -1,6 +1,6 @@
-# traffic_fatalities
+# Traffic fatalities project
 
-This is a [Dagster](https://dagster.io/) project scaffolded with [`dagster project scaffold`](https://docs.dagster.io/getting-started/create-new-project).
+This repo holds code for a project that aims to use traffic incident data, streets networks data, and satellite imagery to predict dangerous intersections as measured by traffic fatalities. The data is currently limited to Sacramento, CA but could be expanded to all of California. Right now, it runs in a Docker container on a HP mini PC set up with Ubuntu.
 
 ## Getting started
 
@@ -18,30 +18,8 @@ dagster dev
 
 Open http://localhost:3000 with your browser to see the project.
 
-You can start writing assets in `traffic_fatalities/assets.py`. The assets are automatically loaded into the Dagster code location as you define them.
+## Data sources
 
-## Development
-
-### Adding new Python dependencies
-
-You can specify new Python dependencies in `setup.py`.
-
-### Unit testing
-
-Tests are in the `traffic_fatalities_tests` directory and you can run tests using `pytest`:
-
-```bash
-pytest traffic_fatalities_tests
-```
-
-### Schedules and sensors
-
-If you want to enable Dagster [Schedules](https://docs.dagster.io/concepts/partitions-schedules-sensors/schedules) or [Sensors](https://docs.dagster.io/concepts/partitions-schedules-sensors/sensors) for your jobs, the [Dagster Daemon](https://docs.dagster.io/deployment/dagster-daemon) process must be running. This is done automatically when you run `dagster dev`.
-
-Once your Dagster Daemon is running, you can start turning on schedules and sensors for your jobs.
-
-## Deploy on Dagster Cloud
-
-The easiest way to deploy your Dagster project is to use Dagster Cloud.
-
-Check out the [Dagster Cloud Documentation](https://docs.dagster.cloud) to learn more.
+* Traffic incident data is downloaded via [UC Berkeley's Transportation Injury Mapping System](https://tims.berkeley.edu/) or TIMS which geocodes data from  California Statewide Integrated Traffic Records System (SWITRS).
+* Street network is accessed from [Open Street Map](https://www.openstreetmap.org/) or OSM using the Python package [osmnx](https://osmnx.readthedocs.io/en/stable/) which accesses the OSM API, converts the data to a network graph, and provides tools for working with its street network data.
+* Satellite images of intersections are downloaded via [Mapbox](https://www.mapbox.com/) API.

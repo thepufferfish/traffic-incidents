@@ -8,11 +8,9 @@ setup(
         "dagster-cloud",
         "pandas",
         "matplotlib",
-        "geopy",
         "osmnx",
         "networkx",
-        "googlemaps",
-        "requests"
+        'thefuzz'
     ],
     extras_require={"dev": ["dagster-webserver", "pytest"]},
 )
